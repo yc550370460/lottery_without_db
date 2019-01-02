@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sync"
 	"time"
+	"strings"
 )
 
 // static path
@@ -35,6 +36,9 @@ const MessageMax = 100
 var msgPool MessagePool
 
 var pool WebsocketPool
+
+var Winner = make(map[string]bool)
+var Exclude = make(map[string]bool)
 
 type MessagePool struct{
 	sync.Mutex
@@ -227,12 +231,24 @@ func init(){
 
 var staticReg = regexp.MustCompile("static")
 var indexReg = regexp.MustCompile("index")
+type AwardOutput struct{
+	Employee settings.EmployeeList
+	Winner []string}
 
+type SaveLotteryOutput struct{
+	Status string
+	Winner []string}
 
 func award(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
+		var winnerList []string
+		for key, value := range Winner{
+			if value{
+				winnerList = append(winnerList, key)
+			}
+		}
 		t, _ := template.ParseFiles(templatePath + "/award.gtpl")
-		t.Execute(w, Employees)
+		t.Execute(w, AwardOutput{Employees, winnerList})
 	}
 }
 
@@ -311,6 +327,44 @@ func SetTimer(){
 	time.Sleep(3* time.Second)
 }
 
+func saveLottery(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	var dataList []string
+	t := template.New("saveLottery")
+	if r.Method == "GET" {
+		tmpList, ok := r.URL.Query()["list"]
+		if !ok || len(tmpList) < 1{
+			//fmt.Fprintf(w, "failed")
+			t.Execute(w, SaveLotteryOutput{"failed", nil})
+		}else{
+			dataList = strings.Split(tmpList[0], ",")
+		}
+		if len(dataList) > 0{
+			for _, value :=range dataList{
+				if value != ""{
+					fmt.Println(value)
+					Winner[value] = true
+				}
+			}
+			var winnerList []string
+			for key, value := range Winner{
+				if value{
+					winnerList = append(winnerList, key)
+				}
+			}
+			fmt.Println(SaveLotteryOutput{"success", winnerList})
+			t.Execute(w, SaveLotteryOutput{"success", winnerList})
+		}else{
+			//fmt.Fprintf(w, "failed")
+			t.Execute(w, SaveLotteryOutput{"failed", nil})
+		}
+	}else{
+		fmt.Println("method is:" + r.Method)
+		//fmt.Fprintf(w, "Method illegal")
+		t.Execute(w, SaveLotteryOutput{"failed", nil})
+	}
+}
+
 
 func main() {
 	var errUUID error
@@ -325,6 +379,9 @@ func main() {
 
 	// award page, just show the page
 	http.HandleFunc("/lottery/", award)
+
+	// award page, just show the page
+	http.HandleFunc("/save_lottery/", saveLottery)
 
 	// login page
 	http.HandleFunc("/message/", message)

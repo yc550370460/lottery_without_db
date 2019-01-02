@@ -9,12 +9,28 @@
     <link rel="stylesheet" href="/static/css/barrager.css">
 
     <script src="/static/js/jquery-2.2.1.min.js"></script>
+    <script src="/static/js/bootstrap.js"></script>
     <script src="/static/js/header.js"></script>
     <script src="/static/js/jquery.barrager.js"></script>
 </head>
 <body>
     <div class='luck-back'>
         <span id="conn_status">connecting...</span>
+        <div class="lucky_list_show">
+            <div class="panel-group">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <a data-toggle="collapse" href="#collapse1"><span class="glyphicon glyphicon-plus"></span>Winners</a>
+                        </h4>
+                    </div>
+                    <div id="collapse1" class="panel-collapse collapse">
+                        <div class="panel-body" id="winners">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="luck-content ce-pack-end">
             <div id="luckuser" class="slotMachine">
                 <div class="slot">
@@ -23,7 +39,7 @@
             </div>
             <div class="luck-content-btn">
                 <a id="start" class="start" onclick='start($("#count_set").val())'>开始</a>
-                <span><input id="count_set"></span>
+                <span id="count_set_span"><input id="count_set" ></span>
             </div>
             <div class="luck-user">
                 <div class="luck-user-title">
@@ -42,7 +58,17 @@
         var all_employee = new Array();
         var xinm = new Array();
         var phone = new Array();
-        all_employee = {{.}}
+        all_employee = {{.Employee}}
+        winners = {{.Winner}}
+        if (winners){
+            for (i=0;i<winners.length;i++)
+                {
+                    var winner_item=$("<p>"+winners[i]+"</p>");
+                    winner_item.appendTo($("#winners"));
+                }
+        }
+
+
         for (i=0;i<all_employee.length;i++)
         {
             xinm[i] = all_employee[i].Icon
@@ -136,7 +162,17 @@
                 });
             $("#save_lottery").attr("href",'data:application/json;charset=utf-8;json,' + members);
             $("#save_lottery").attr("download","data.json");
+            $.get("/save_lottery/?list="+members, function(result){
+                alert(result);
+                if (status == "success"){
+                    alert("Save successfully");
+                }
+                else{
+                    alert("Save failed");
+                }
+            })
         };
+
 
         function show(){
             if (need_heartbeat === true)
