@@ -93,9 +93,9 @@ function zd() {
 					};
 
 					$('.luck-user-list').prepend("<li><div class='portrait' style='background-image:url("+xinm[num]+")'></div><div class='luckuserName'>"+phone[num]+"</div></li>");
-                    if (i == last){
-                        $('.luck-user-list').prepend("<li>__________________________</li>"); //----------------------------------
-                    }
+                    // if (i == last){
+                    //     $('.luck-user-list').prepend("<li>__________________________</li>"); //----------------------------------
+                    // }
 					//将已中奖者从数组中"删除",防止二次中奖
 					xinm.splice($.inArray(xinm[num], xinm), 1);
 					phone.splice($.inArray(phone[num], phone), 1);

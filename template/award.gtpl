@@ -29,9 +29,9 @@
                 <div class="luck-user-title">
                     <span>中奖名单</span>
                 </div>
-                <ul class="luck-user-list"></ul>
+                <ul class="luck-user-list" id="lucky_list"></ul>
                 <div class="luck-user-btn">
-                    <a href="#">中奖人</a>
+                    <a onclick="saveFile()" id="save_lottery">中奖人</a>
                 </div>
             </div>
         </div>
@@ -128,6 +128,15 @@
 
             }
         }
+
+        var saveFile = function(event) {
+            members = new Array();
+            $("#lucky_list li").each(function(){
+                members.push($(this).children().first().next().html());
+                });
+            $("#save_lottery").attr("href",'data:application/json;charset=utf-8;json,' + members);
+            $("#save_lottery").attr("download","data.json");
+        };
 
         function show(){
             if (need_heartbeat === true)
