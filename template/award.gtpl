@@ -163,11 +163,21 @@
             $("#save_lottery").attr("href",'data:application/json;charset=utf-8;json,' + members);
             $("#save_lottery").attr("download","data.json");
             $.get("/save_lottery/?list="+members, function(result){
-                alert(result);
+                status = result.split(":")[0]
                 if (status == "success"){
+                    tmp_list = result.split(":")[1].split(",")
+                    $("#winners p").each(function(){
+                        $(this).remove();
+                        });
+                    if (tmp_list){
+                        for (i=0;i<tmp_list.length;i++)
+                            {
+                                var winner_item=$("<p>"+tmp_list[i]+"</p>");
+                                winner_item.appendTo($("#winners"));
+                            }
+                    }
                     alert("Save successfully");
-                }
-                else{
+                }else{
                     alert("Save failed");
                 }
             })

@@ -237,7 +237,7 @@ type AwardOutput struct{
 
 type SaveLotteryOutput struct{
 	Status string
-	Winner []string}
+	Winner string}
 
 func award(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
@@ -335,7 +335,7 @@ func saveLottery(w http.ResponseWriter, r *http.Request) {
 		tmpList, ok := r.URL.Query()["list"]
 		if !ok || len(tmpList) < 1{
 			//fmt.Fprintf(w, "failed")
-			t.Execute(w, SaveLotteryOutput{"failed", nil})
+			t.Execute(w, SaveLotteryOutput{"failed", ""})
 		}else{
 			dataList = strings.Split(tmpList[0], ",")
 		}
@@ -347,21 +347,24 @@ func saveLottery(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			var winnerList []string
+			var winnerString string
 			for key, value := range Winner{
 				if value{
 					winnerList = append(winnerList, key)
 				}
 			}
-			fmt.Println(SaveLotteryOutput{"success", winnerList})
-			t.Execute(w, SaveLotteryOutput{"success", winnerList})
+			winnerString = strings.Join(winnerList, ",")
+			fmt.Println(SaveLotteryOutput{"success", winnerString})
+			t.Parse("{{.Status}}:" + "{{.Winner}}")
+			t.Execute(w, SaveLotteryOutput{"success", winnerString})
 		}else{
 			//fmt.Fprintf(w, "failed")
-			t.Execute(w, SaveLotteryOutput{"failed", nil})
+			t.Execute(w, SaveLotteryOutput{"failed", ""})
 		}
 	}else{
 		fmt.Println("method is:" + r.Method)
 		//fmt.Fprintf(w, "Method illegal")
-		t.Execute(w, SaveLotteryOutput{"failed", nil})
+		t.Execute(w, SaveLotteryOutput{"failed", ""})
 	}
 }
 
