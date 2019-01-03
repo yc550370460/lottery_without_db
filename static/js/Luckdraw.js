@@ -1,17 +1,46 @@
+var winners = new Array()
+
+Array.prototype.indexOf = function(val) {
+    for (var i = 0; i < this.length; i++) {
+        if (this[i] == val) return i;
+    }
+    return -1;
+};
+
+
+Array.prototype.remove = function(val) {
+    var index = this.indexOf(val);
+    if (index > -1) {
+        this.splice(index, 1);
+    }
+};
+
+$("#winners p").each(function(){
+    winners.push($(this).html());
+});
+
+var xinm_new = new Array()
+xinm_new = xinm
+var phone_new = new Array()
+phone_new = phone
 
 var nametxt = $('.slot');
 var phonetxt = $('.name');
-var pcount = xinm.length-1;//参加人数
 var runing = true;
 var trigger = true;
 var num = 0;
 var Lotterynumber
 var Count
+var pcount
+
 
 $(function () {
-	nametxt.css('background-image','url('+xinm[0]+')');
-	phonetxt.html(phone[0]);
+	nametxt.css('background-image','url('+xinm_new[0]+')');
+	phonetxt.html(phone_new[0]);
 });
+
+
+
 
 // 开始停止
 function start(val) {
@@ -20,6 +49,15 @@ function start(val) {
 		alert("输入错误");
 		return false
 	}
+    for (i=0;i<winners.length;i++){
+        temp = phone_new.indexOf(winners[i])
+        if (temp > -1)
+        {
+            phone_new.remove(winners[i])
+            xinm_new.remove(xinm_new[temp])
+        }
+    }
+    pcount = xinm_new.length-1;//参加人数
     Lotterynumber = val
     Count = val
 	if (runing) {
@@ -47,14 +85,14 @@ function startLuck() {
 // 循环参加名单
 function startNum() {
 	num = Math.floor(Math.random() * pcount);
-	nametxt.css('background-image','url('+xinm[num]+')');
-	phonetxt.html(phone[num]);
+	nametxt.css('background-image','url('+xinm_new[num]+')');
+	phonetxt.html(phone_new[num]);
 	t = setTimeout(startNum, 0);
 }
 
 // 停止跳动
 function stop() {
-	pcount = xinm.length-1;
+	pcount = xinm_new.length-1;
 	clearInterval(t);
 	t = 0;
 }
@@ -92,16 +130,17 @@ function zd() {
 						trigger = true;
 					};
 
-					$('.luck-user-list').prepend("<li><div class='portrait' style='background-image:url("+xinm[num]+")'></div><div class='luckuserName'>"+phone[num]+"</div></li>");
+					$('.luck-user-list').prepend("<li><div class='portrait' style='background-image:url("+xinm_new[num]+")'></div><div class='luckuserName'>"+phone_new[num]+"</div></li>");
                     // if (i == last){
                     //     $('.luck-user-list').prepend("<li>__________________________</li>"); //----------------------------------
                     // }
 					//将已中奖者从数组中"删除",防止二次中奖
-					xinm.splice($.inArray(xinm[num], xinm), 1);
-					phone.splice($.inArray(phone[num], phone), 1);
+					xinm_new.splice($.inArray(xinm_new[num], xinm_new), 1);
+					phone_new.splice($.inArray(phone_new[num], phone_new), 1);
 
 				}
 			},1000);
 		};
 	}
 }
+
