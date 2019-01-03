@@ -34,6 +34,8 @@ const QueueMax = 100
 const MessageMax = 100
 // init MessagePool
 var msgPool MessagePool
+// HeartbeatGap
+const HeartbeatGap = 60
 
 var pool WebsocketPool
 
@@ -96,17 +98,19 @@ func (cr *WebsocketPool)GetWebsocketConn(ws *websocket.Conn) bool{
 	activeTime := time.Now().Unix()
 	defer cr.Unlock()
 	if len(cr.util) >= WebsocketMax{
-		fmt.Println("Reach the max and  will pop the previous conn")
+		fmt.Println("Reach the max and will pop the previous conn")
 		cr.util = cr.util[1:]
 		IdTmp , errUuid := uuid.NewV4()
 		if errUuid != nil{
 			panic("Generate uuid failed")
+			return false
 		}
 		cr.util = append(cr.util, WebsocketUtil{IdTmp, ws, true, activeTime})
 	}else{
 		IdTmp , errUuid := uuid.NewV4()
 		if errUuid != nil{
 			panic("Generate uuid failed")
+			return false
 		}
 		cr.util = append(cr.util, WebsocketUtil{IdTmp, ws, true, activeTime})
 	}
@@ -126,6 +130,18 @@ func (cr *WebsocketPool)FindWebsocketByConn(ws *websocket.Conn) (conn *Websocket
 	return &cr.util[tmp]
 }
 
+func (cr *WebsocketPool)UpdateWebsocketActivetime(id uuid.UUID, activetime int64){
+	cr.Lock()
+	defer cr.Unlock()
+	var tmp int
+	for index, value :=range cr.util{
+		if value.connId == id{
+			tmp = index
+		}
+	}
+	cr.util[tmp].activeTime = activetime
+}
+
 
 func (cr *WebsocketPool)UpdateWebsocketConnStatus(id uuid.UUID, status bool) {
 	cr.Lock()
@@ -140,20 +156,21 @@ func (cr *WebsocketPool)UpdateWebsocketConnStatus(id uuid.UUID, status bool) {
 }
 
 func (cr *WebsocketPool)ReleaseWebsocketConn(id uuid.UUID){
-	//if _, isPresent := cr.util[id];isPresent{
-	//	delete(cr.util, id)
-	//}
 	cr.Lock()
 	defer cr.Unlock()
 
-	var tmp int
+	var tmp int = -1
 	for index, value :=range cr.util{
 		if value.connId == id{
 			tmp = index
 		}
 	}
-	for i,_ := range cr.util[tmp+1:]{
-		cr.util = append(cr.util[:tmp], cr.util[i])
+	if tmp > -1{
+		tmpUtil := cr.util[tmp+1:]
+		cr.util = cr.util[:tmp]
+		for i,_ := range tmpUtil[:]{
+			cr.util = append(cr.util, tmpUtil[i])
+		}
 	}
 }
 
@@ -184,50 +201,7 @@ func init(){
 	}
 	Employees = Employee
 
-	//redisClient = &redis.GlobalRedisClient
 }
-
-
-
-//func bubbleTest(ws *websocket.Conn) {
-//	var err error
-//	for {
-//		var reply string
-//
-//		if err = websocket.Message.Receive(ws, &reply); err != nil {
-//			fmt.Println(err)
-//			fmt.Println("Client lost")
-//			return
-//		}
-//
-//		RedisBubbleLength, errLength := redisClient.RedisLLen("bubble")
-//		if errLength != nil {
-//			panic(errLength)
-//		}
-//		for RedisBubbleLength > MaxLengthBubble {
-//			_, errGetData := redisClient.RedisLpop("bubble")
-//			if errGetData != nil {
-//				panic(errGetData)
-//			}
-//			RedisBubbleLength -= 1
-//
-//		}
-//		errPush := redisClient.RedisRpush("bubble", reply)
-//		if errPush != nil {
-//			panic(errPush)
-//		} else {
-//			errStatus := redisClient.RedisSet("bubbleStatus", "true")
-//			if errStatus != nil {
-//				panic(errStatus)
-//
-//			}
-//			msg := reply
-//			if err = websocket.Message.Send(ws, msg); err != nil {
-//				panic(err)
-//			}
-//		}
-//	}
-//}
 
 var staticReg = regexp.MustCompile("static")
 var indexReg = regexp.MustCompile("index")
@@ -282,20 +256,51 @@ func message(w http.ResponseWriter, r *http.Request) {
 
 func bubble(ws *websocket.Conn) {
 	if status := pool.GetWebsocketConn(ws); status == false{
-		if errSend := websocket.Message.Send(ws, "status:获取连接失败");errSend != nil{
-			fmt.Println(errSend)
-			panic("Send msg to web socket Error, Get new conn phase")
+		if errSend := websocket.Message.Send(ws, "status:connect failed, please try again later");errSend != nil{
+			log.Println(errSend)
+			log.Println("Client connect error")
+			return
 		}
-		return
 	}
+
+	wsRecv :=pool.FindWebsocketByConn(ws)
+	log.Println("New connection, conn id is:",wsRecv.connId)
+	log.Println(pool.util)
+
+	defer func() {
+		log.Println("Error happend and disconnect")
+		pool.ReleaseWebsocketConn(wsRecv.connId)
+	}()
 
 	for {
 		START:
-		wsRecv :=pool.FindWebsocketByConn(ws)
-		wsRecv.activeTime = time.Now().Unix()
+		var reply string
+		if errRecv := websocket.Message.Receive(ws, &reply);errRecv != nil{
+			tmp :=pool.FindWebsocketByConn(ws)
+			log.Println(errRecv)
+			log.Println("Client disconnect for conn:", tmp.connId)
+			return
+		}
 
-		time.Sleep(1*time.Second)
+		log.Println(pool.util)
+
+		pool.UpdateWebsocketActivetime(wsRecv.connId, time.Now().Unix())
+
+		log.Println("current conn is:",&wsRecv.conn)
+		for _, _ws := range pool.util {
+			if time.Now().Unix() - _ws.activeTime > HeartbeatGap{
+				log.Println("Timeout point")
+				log.Println("Timeout for client:", _ws.connId)
+				if _ws.conn == ws{
+					return
+				}else{
+					pool.ReleaseWebsocketConn(_ws.connId)
+				}
+			}
+		}
+
 		bubbleLength := len(msgPool.Message)
+
 		if bubbleLength < 1{
 			time.Sleep(10*time.Second)
 			goto START
@@ -303,20 +308,28 @@ func bubble(ws *websocket.Conn) {
 
 		data, errGetData := msgPool.Pop()
 		if errGetData != nil{
-			fmt.Println(errGetData)
+			log.Println(errGetData)
 			panic("Get bubble data Error")
 		}
 
 		for _, _ws := range pool.util {
-			if time.Now().Unix() - _ws.activeTime < 10{
-				fmt.Println(pool.util)
+			if time.Now().Unix() - _ws.activeTime < HeartbeatGap{
 				if err := websocket.Message.Send(_ws.conn, string(data)); err != nil {
-					fmt.Println(err)
-					fmt.Println(_ws.connId)
-					pool.ReleaseWebsocketConn(_ws.connId)
+					log.Println(err)
+					log.Println("Connect error for client:", _ws.connId)
+					if _ws.conn == ws{
+						return
+					}else{
+						pool.ReleaseWebsocketConn(_ws.connId)
+					}
 				}
 			}else{
-				pool.ReleaseWebsocketConn(_ws.connId)
+				log.Println("Timeout for client:", _ws.connId)
+				if _ws.conn == ws{
+					return
+				}else{
+					pool.ReleaseWebsocketConn(_ws.connId)
+				}
 			}
 		}
 	}
@@ -334,7 +347,6 @@ func saveLottery(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		tmpList, ok := r.URL.Query()["list"]
 		if !ok || len(tmpList) < 1{
-			//fmt.Fprintf(w, "failed")
 			t.Execute(w, SaveLotteryOutput{"failed", ""})
 		}else{
 			dataList = strings.Split(tmpList[0], ",")
@@ -389,8 +401,6 @@ func main() {
 	// login page
 	http.HandleFunc("/message/", message)
 
-	// Get the bubble text from user and store in redis
-	//http.Handle("/web_socket", websocket.Handler(bubbleTest))
 	// get the bubble text and send to award page
 	http.Handle("/bubble", websocket.Handler(bubble))
 

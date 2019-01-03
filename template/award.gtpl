@@ -88,7 +88,7 @@
                 $("#conn_status").css("color", "black")
                 console.log("connected to " + wsuri);
                 need_heartbeat = true;
-                setInterval(show, 3000);
+                setInterval(show, 9000);
             }
             sock.onclose = function(e) {
                 console.log("connection closed (" + e.code + ")");
